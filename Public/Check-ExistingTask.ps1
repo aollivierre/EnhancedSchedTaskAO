@@ -6,7 +6,7 @@ function Check-ExistingTask {
     )
 
     Begin {
-        Write-EnhancedLog -Message "Starting Check-ExistingTask function" -Level "INFO"
+        Write-EnhancedLog -Message "Starting Check-ExistingTask function" -Level "Notice"
         Log-Params -Params @{ taskName = $taskName }
     }
 
@@ -30,7 +30,7 @@ function Check-ExistingTask {
     }
 
     End {
-        Write-EnhancedLog -Message "Exiting Check-ExistingTask function" -Level "INFO"
+        Write-EnhancedLog -Message "Exiting Check-ExistingTask function" -Level "Notice"
     }
 }
 

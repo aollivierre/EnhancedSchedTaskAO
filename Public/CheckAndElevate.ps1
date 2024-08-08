@@ -19,7 +19,7 @@ function CheckAndElevate {
     param ()
 
     Begin {
-        Write-EnhancedLog -Message "Starting CheckAndElevate function" -Level "INFO"
+        Write-EnhancedLog -Message "Starting CheckAndElevate function" -Level "Notice"
         try {
             $currentPrincipal = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())
             $isAdmin = $currentPrincipal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
@@ -53,7 +53,7 @@ function CheckAndElevate {
     }
 
     End {
-        Write-EnhancedLog -Message "Exiting CheckAndElevate function" -Level "INFO"
+        Write-EnhancedLog -Message "Exiting CheckAndElevate function" -Level "Notice"
     }
 }
 

@@ -6,7 +6,7 @@ function Unregister-ScheduledTaskWithLogging {
     )
 
     Begin {
-        Write-EnhancedLog -Message "Starting Unregister-ScheduledTaskWithLogging function" -Level "INFO"
+        Write-EnhancedLog -Message "Starting Unregister-ScheduledTaskWithLogging function" -Level "Notice"
         Log-Params -Params @{ TaskName = $TaskName }
     }
 
@@ -38,7 +38,7 @@ function Unregister-ScheduledTaskWithLogging {
     }
 
     End {
-        Write-EnhancedLog -Message "Exiting Unregister-ScheduledTaskWithLogging function" -Level "INFO"
+        Write-EnhancedLog -Message "Exiting Unregister-ScheduledTaskWithLogging function" -Level "Notice"
     }
 }
 

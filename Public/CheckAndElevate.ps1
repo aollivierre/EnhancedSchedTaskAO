@@ -1,31 +1,47 @@
 function CheckAndElevate {
     <#
     .SYNOPSIS
-    Elevates the script to run with administrative privileges if not already running as an administrator.
+    Checks if the script is running with administrative privileges and optionally elevates it if not.
 
     .DESCRIPTION
-    The CheckAndElevate function checks if the current PowerShell session is running with administrative privileges. If it is not, the function attempts to restart the script with elevated privileges using the 'RunAs' verb. This is useful for scripts that require administrative privileges to perform their tasks.
+    The CheckAndElevate function checks whether the current PowerShell session is running with administrative privileges. 
+    It can either return the administrative status or attempt to elevate the script if it is not running as an administrator.
+
+    .PARAMETER ElevateIfNotAdmin
+    If set to $true, the function will attempt to elevate the script if it is not running with administrative privileges. 
+    If set to $false, the function will simply return the administrative status without taking any action.
 
     .EXAMPLE
-    CheckAndElevate
+    CheckAndElevate -ElevateIfNotAdmin $true
 
     Checks the current session for administrative privileges and elevates if necessary.
 
+    .EXAMPLE
+    $isAdmin = CheckAndElevate -ElevateIfNotAdmin $false
+    if (-not $isAdmin) {
+        Write-Host "The script is not running with administrative privileges."
+    }
+
+    Checks the current session for administrative privileges and returns the status without elevating.
+    
     .NOTES
-    This function will cause the script to exit and restart if it is not already running with administrative privileges. Ensure that any state or data required after elevation is managed appropriately.
+    If the script is elevated, it will restart with administrative privileges. Ensure that any state or data required after elevation is managed appropriately.
     #>
 
     [CmdletBinding()]
-    param ()
+    param (
+        [bool]$ElevateIfNotAdmin = $true
+    )
 
     Begin {
-        Write-EnhancedLog -Message "Starting CheckAndElevate function" -Level "Notice"
-        try {
-            $currentPrincipal = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())
-            $isAdmin = $currentPrincipal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+        Write-EnhancedLog -Message "Starting CheckAndElevate function" -Level "NOTICE"
 
+        # Use .NET classes for efficiency
+        try {
+            $isAdmin = [System.Security.Principal.WindowsPrincipal]::new([System.Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([System.Security.Principal.WindowsBuiltInRole]::Administrator)
             Write-EnhancedLog -Message "Checking for administrative privileges..." -Level "INFO"
-        } catch {
+        }
+        catch {
             Write-EnhancedLog -Message "Error determining administrative status: $($_.Exception.Message)" -Level "ERROR"
             Handle-Error -ErrorRecord $_
             throw $_
@@ -34,28 +50,43 @@ function CheckAndElevate {
 
     Process {
         if (-not $isAdmin) {
-            try {
-                Write-EnhancedLog -Message "The script is not running with administrative privileges. Attempting to elevate..." -Level "WARNING"
-                
-                $arguments = "-NoProfile -ExecutionPolicy Bypass -NoExit -File `"$PSCommandPath`" $args"
-                Start-Process PowerShell -Verb RunAs -ArgumentList $arguments
+            if ($ElevateIfNotAdmin) {
+                try {
+                    Write-EnhancedLog -Message "The script is not running with administrative privileges. Attempting to elevate..." -Level "WARNING"
 
-                Write-EnhancedLog -Message "Script re-launched with administrative privileges. Exiting current session." -Level "INFO"
-                exit
-            } catch {
-                Write-EnhancedLog -Message "Failed to elevate privileges: $($_.Exception.Message)" -Level "ERROR"
-                Handle-Error -ErrorRecord $_
-                throw $_
+                    $powerShellPath = Get-PowerShellPath
+                    $startProcessParams = @{
+                        FilePath     = $powerShellPath
+                        ArgumentList = @("-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "`"$PSCommandPath`"")
+                        Verb         = "RunAs"
+                    }
+                    Start-Process @startProcessParams
+
+                    Write-EnhancedLog -Message "Script re-launched with administrative privileges. Exiting current session." -Level "INFO"
+                    exit
+                }
+                catch {
+                    Write-EnhancedLog -Message "Failed to elevate privileges: $($_.Exception.Message)" -Level "ERROR"
+                    Handle-Error -ErrorRecord $_
+                    throw $_
+                }
+            } else {
+                Write-EnhancedLog -Message "The script is not running with administrative privileges and will continue without elevation." -Level "INFO"
             }
-        } else {
+        }
+        else {
             Write-EnhancedLog -Message "Script is already running with administrative privileges." -Level "INFO"
         }
     }
 
     End {
-        Write-EnhancedLog -Message "Exiting CheckAndElevate function" -Level "Notice"
+        Write-EnhancedLog -Message "Exiting CheckAndElevate function" -Level "NOTICE"
+        return $isAdmin
     }
 }
 
-# Example usage
-# CheckAndElevate
+# Example usage to check and optionally elevate:
+# CheckAndElevate -ElevateIfNotAdmin $true
+
+# Example usage to just check and return status without elevating:
+# $isAdmin = CheckAndElevate -ElevateIfNotAdmin $false

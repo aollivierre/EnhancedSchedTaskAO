@@ -1,5 +1,30 @@
-
 function Download-PSAppDeployToolkit {
+    <#
+    .SYNOPSIS
+    Downloads and extracts the latest PSAppDeployToolkit from a GitHub repository.
+
+    .DESCRIPTION
+    The Download-PSAppDeployToolkit function fetches the latest release of the PSAppDeployToolkit from a specified GitHub repository, downloads the release, and extracts its contents to a specified directory.
+
+    .PARAMETER GithubRepository
+    The GitHub repository from which to download the PSAppDeployToolkit (e.g., 'PSAppDeployToolkit/PSAppDeployToolkit').
+
+    .PARAMETER FilenamePatternMatch
+    The filename pattern to match the release asset (e.g., '*.zip').
+
+    .PARAMETER ScriptDirectory
+    The directory where the toolkit files should be extracted.
+
+    .EXAMPLE
+    $params = @{
+        GithubRepository = 'PSAppDeployToolkit/PSAppDeployToolkit';
+        FilenamePatternMatch = '*.zip';
+        ScriptDirectory = 'C:\YourScriptDirectory'
+    }
+    Download-PSAppDeployToolkit @params
+    Downloads and extracts the latest PSAppDeployToolkit to the specified directory.
+    #>
+
     [CmdletBinding()]
     param (
         [Parameter(Mandatory = $true)]
@@ -12,8 +37,8 @@ function Download-PSAppDeployToolkit {
         [string]$ScriptDirectory
     )
 
-    begin {
-        Write-EnhancedLog -Message "Starting Download-PSAppDeployToolkit function" -Level "INFO"
+    Begin {
+        Write-EnhancedLog -Message "Starting Download-PSAppDeployToolkit function" -Level "Notice"
         Log-Params -Params $PSCmdlet.MyInvocation.BoundParameters
 
         try {
@@ -22,13 +47,13 @@ function Download-PSAppDeployToolkit {
             Write-EnhancedLog -Message "GitHub release URI: $psadtReleaseUri" -Level "INFO"
         }
         catch {
-            Write-EnhancedLog -Message "Error in begin block: $($_.Exception.Message)" -Level "ERROR"
+            Write-EnhancedLog -Message "Error in Begin block: $($_.Exception.Message)" -Level "ERROR"
             Handle-Error -ErrorRecord $_
             throw $_
         }
     }
 
-    process {
+    Process {
         try {
             # Fetch the latest release information from GitHub
             Write-EnhancedLog -Message "Fetching the latest release information from GitHub" -Level "INFO"
@@ -45,29 +70,13 @@ function Download-PSAppDeployToolkit {
             $zipTempDownloadPath = Join-Path -Path ([System.IO.Path]::GetTempPath()) -ChildPath (Split-Path -Path $psadtDownloadUri -Leaf)
             Write-EnhancedLog -Message "Temporary download path: $zipTempDownloadPath" -Level "INFO"
 
-            # Initialize retry mechanism
-            $maxRetries = 3
-            $retryCount = 0
-            $downloadSuccess = $false
-
-            # Download the file with retry mechanism
-            while (-not $downloadSuccess -and $retryCount -lt $maxRetries) {
-                try {
-                    $retryCount++
-                    Write-EnhancedLog -Message "Downloading file from $psadtDownloadUri to $zipTempDownloadPath (Attempt $retryCount)" -Level "INFO"
-                    $webClient = New-Object System.Net.WebClient
-                    $webClient.DownloadFile($psadtDownloadUri, $zipTempDownloadPath)
-                    $downloadSuccess = $true
-                }
-                catch {
-                    Write-EnhancedLog -Message "Error during download attempt $retryCount $($_.Exception.Message)" -Level "ERROR"
-                    if ($retryCount -eq $maxRetries) {
-                        Write-EnhancedLog -Message "Maximum retry attempts reached. Download failed." -Level "ERROR"
-                        throw $_
-                    }
-                    Start-Sleep -Seconds 5
-                }
+            # Download the file with retry mechanism using Start-FileDownloadWithRetry
+            $downloadParams = @{
+                Source      = $psadtDownloadUri
+                Destination = $zipTempDownloadPath
+                MaxRetries  = 3
             }
+            Start-FileDownloadWithRetry @downloadParams
 
             # Unblock the downloaded file if necessary
             Write-EnhancedLog -Message "Unblocking file at $zipTempDownloadPath" -Level "INFO"
@@ -120,28 +129,26 @@ function Download-PSAppDeployToolkit {
             Remove-Item -Path $tempExtractionPath -Recurse -Force
         }
         catch {
-            Write-EnhancedLog -Message "Error in process block: $($_.Exception.Message)" -Level "ERROR"
+            Write-EnhancedLog -Message "Error in Process block: $($_.Exception.Message)" -Level "ERROR"
             Handle-Error -ErrorRecord $_
             throw $_
         }
     }
 
-    end {
+    End {
         try {
             Write-EnhancedLog -Message "File extracted and copied successfully to $ScriptDirectory" -Level "INFO"
         }
         catch {
-            Write-EnhancedLog -Message "Error in end block: $($_.Exception.Message)" -Level "ERROR"
+            Write-EnhancedLog -Message "Error in End block: $($_.Exception.Message)" -Level "ERROR"
             Handle-Error -ErrorRecord $_
         }
 
-        Write-EnhancedLog -Message "Exiting Download-PSAppDeployToolkit function" -Level "INFO"
+        Write-EnhancedLog -Message "Exiting Download-PSAppDeployToolkit function" -Level "Notice"
     }
 }
 
-
-
-# # Example usage
+# Example usage
 # $params = @{
 #     GithubRepository = 'PSAppDeployToolkit/PSAppDeployToolkit';
 #     FilenamePatternMatch = '*.zip';

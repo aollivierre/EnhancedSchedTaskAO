@@ -44,6 +44,11 @@ function Create-ScheduledTask {
 
     Process {
         try {
+
+            # Unregister the task if it exists
+            Unregister-ScheduledTaskWithLogging -TaskName $TaskName
+
+            # Create the new scheduled task
             $arguments = "-executionpolicy Bypass -file $ScriptPath"
 
             Write-EnhancedLog -Message "Creating scheduled task: $TaskName at $TaskPath to run script: $ScriptPath" -Level "INFO"

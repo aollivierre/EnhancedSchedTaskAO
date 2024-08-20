@@ -4,7 +4,7 @@ function Download-PSAppDeployToolkit {
     Downloads and extracts the latest PSAppDeployToolkit from a GitHub repository.
 
     .DESCRIPTION
-    The Download-PSAppDeployToolkit function fetches the latest release of the PSAppDeployToolkit from a specified GitHub repository, downloads the release, and extracts its contents to a specified directory named `PSAppDeployToolkit`.
+    The Download-PSAppDeployToolkit function fetches the latest release of the PSAppDeployToolkit from a specified GitHub repository, downloads the release, and extracts its contents to a specified directory.
 
     .PARAMETER GithubRepository
     The GitHub repository from which to download the PSAppDeployToolkit (e.g., 'PSAppDeployToolkit/PSAppDeployToolkit').
@@ -12,17 +12,17 @@ function Download-PSAppDeployToolkit {
     .PARAMETER FilenamePatternMatch
     The filename pattern to match the release asset (e.g., '*.zip').
 
-    .PARAMETER DestinationDirectory
-    The parent directory where the `PSAppDeployToolkit` folder will be created.
+    .PARAMETER ScriptDirectory
+    The directory where the toolkit files should be extracted.
 
     .EXAMPLE
     $params = @{
         GithubRepository = 'PSAppDeployToolkit/PSAppDeployToolkit';
         FilenamePatternMatch = '*.zip';
-        DestinationDirectory = 'C:\YourScriptDirectory'
+        ScriptDirectory = 'C:\YourScriptDirectory'
     }
     Download-PSAppDeployToolkit @params
-    Downloads and extracts the latest PSAppDeployToolkit to a `PSAppDeployToolkit` directory within the specified parent directory.
+    Downloads and extracts the latest PSAppDeployToolkit to the specified directory.
     #>
 
     [CmdletBinding()]
@@ -34,7 +34,7 @@ function Download-PSAppDeployToolkit {
         [string]$FilenamePatternMatch,
 
         [Parameter(Mandatory = $true)]
-        [string]$DestinationDirectory
+        [string]$ScriptDirectory
     )
 
     Begin {
@@ -58,17 +58,16 @@ function Download-PSAppDeployToolkit {
             # Fetch the latest release information from GitHub
             Write-EnhancedLog -Message "Fetching the latest release information from GitHub" -Level "INFO"
             $psadtDownloadUri = (Invoke-RestMethod -Method GET -Uri $psadtReleaseUri).assets |
-            Where-Object { $_.name -like $FilenamePatternMatch } |
-            Select-Object -ExpandProperty browser_download_url
+                Where-Object { $_.name -like $FilenamePatternMatch } |
+                Select-Object -ExpandProperty browser_download_url
 
             if (-not $psadtDownloadUri) {
                 throw "No matching file found for pattern: $FilenamePatternMatch"
             }
             Write-EnhancedLog -Message "Found matching download URL: $psadtDownloadUri" -Level "INFO"
 
-            # Set the path for the temporary download location with a timestamp
-            $timestamp = Get-Date -Format "yyyyMMddHHmmss"
-            $zipTempDownloadPath = Join-Path -Path ([System.IO.Path]::GetTempPath()) -ChildPath "PSAppDeployToolkit_$timestamp.zip"
+            # Set the path for the temporary download location
+            $zipTempDownloadPath = Join-Path -Path ([System.IO.Path]::GetTempPath()) -ChildPath (Split-Path -Path $psadtDownloadUri -Leaf)
             Write-EnhancedLog -Message "Temporary download path: $zipTempDownloadPath" -Level "INFO"
 
             # Download the file with retry mechanism using Start-FileDownloadWithRetry
@@ -84,6 +83,7 @@ function Download-PSAppDeployToolkit {
             Unblock-File -Path $zipTempDownloadPath
 
             # Create a timestamped temporary folder for extraction
+            $timestamp = Get-Date -Format "yyyyMMddHHmmss"
             $tempExtractionPath = Join-Path -Path ([System.IO.Path]::GetTempPath()) -ChildPath "PSAppDeployToolkit_$timestamp"
             if (-not (Test-Path $tempExtractionPath)) {
                 New-Item -Path $tempExtractionPath -ItemType Directory | Out-Null
@@ -93,46 +93,34 @@ function Download-PSAppDeployToolkit {
             Write-EnhancedLog -Message "Extracting file from $zipTempDownloadPath to $tempExtractionPath" -Level "INFO"
             Expand-Archive -Path $zipTempDownloadPath -DestinationPath $tempExtractionPath -Force
 
-            # Define the PSAppDeployToolkit directory path
-            $psAppDeployToolkitPath = Join-Path -Path $DestinationDirectory -ChildPath "PSAppDeployToolkit"
-            if (-not (Test-Path $psAppDeployToolkitPath)) {
-                New-Item -Path $psAppDeployToolkitPath -ItemType Directory | Out-Null
-                Write-EnhancedLog -Message "Created directory: $psAppDeployToolkitPath" -Level "INFO"
-            }
+            # Use robocopy to copy all files from the temporary extraction folder to the ScriptDirectory, excluding deploy-application.ps1
+            Write-EnhancedLog -Message "Copying files from $tempExtractionPath to $ScriptDirectory" -Level "INFO"
+            $robocopyArgs = @(
+                $tempExtractionPath,
+                $ScriptDirectory,
+                "/E", # Copies subdirectories, including empty ones.
+                "/XF", "deploy-application.ps1"
+            )
+            $robocopyCommand = "robocopy.exe $($robocopyArgs -join ' ')"
+            Write-EnhancedLog -Message "Executing command: $robocopyCommand" -Level "INFO"
+            Invoke-Expression $robocopyCommand
 
-            # Use Copy-Item to copy the entire extracted folder structure, excluding Toolkit\Deploy-Application.ps1 and AppDeployToolkitBanner.png
-            Write-EnhancedLog -Message "Copying files from $tempExtractionPath to $psAppDeployToolkitPath, excluding Toolkit\Deploy-Application.ps1 and AppDeployToolkitBanner.png" -Level "INFO"
+            # Copy Deploy-Application.exe from Toolkit to ScriptDirectory
+            Write-EnhancedLog -Message "Copying Deploy-Application.exe from Toolkit $deployAppSource to $ScriptDirectory" -Level "INFO"
+            $deployAppSource = Join-Path -Path $tempExtractionPath -ChildPath "Toolkit"
+            $deployAppArgs = @(
+                $deployAppSource,
+                $ScriptDirectory,
+                "Deploy-Application.exe",
+                "/COPY:DAT",
+                "/R:1",
+                "/W:1"
+            )
+            $deployAppCommand = "robocopy.exe $($deployAppArgs -join ' ')"
+            Write-EnhancedLog -Message "Executing command: $deployAppCommand" -Level "INFO"
+            Invoke-Expression $deployAppCommand
 
-
-            #ToDO fix the following as it is creating duplicate empty folders within each other so either fix it with copy-item or bring back robocopy but maintain exclusions or use a hybrid approach of using robocopy to maintain the original folder structure and then use copy-item to copy specific items from source to destination 
-
-            Get-ChildItem -Path $tempExtractionPath -Recurse | 
-            Where-Object { 
-                $_.FullName -notmatch '\\Toolkit\\Deploy-Application\.ps1$' -and
-                $_.Name -ne 'AppDeployToolkitBanner.png'
-            } |
-            ForEach-Object {
-                $destinationPath = $_.FullName.Replace($tempExtractionPath, $psAppDeployToolkitPath)
-                if (-not (Test-Path -Path (Split-Path -Path $destinationPath -Parent))) {
-                    New-Item -Path (Split-Path -Path $destinationPath -Parent) -ItemType Directory | Out-Null
-                }
-                Copy-Item -Path $_.FullName -Destination $destinationPath -Force
-            }
-
-
-            Write-EnhancedLog -Message "Files copied successfully from Source: $tempExtractionPath to Destination: $psAppDeployToolkitPath" -Level "INFO"
-
-            # Verify the copy operation
-            Write-EnhancedLog -Message "Verifying the copy operation..." -Level "INFO"
-            $verificationResults = Verify-CopyOperation -SourcePath $tempExtractionPath -DestinationPath $psAppDeployToolkitPath
-
-            # Handle the verification results if necessary
-            if ($verificationResults.Count -gt 0) {
-                Write-EnhancedLog -Message "Discrepancies found during copy verification." -Level "ERROR"
-            }
-            else {
-                Write-EnhancedLog -Message "Copy verification completed successfully with no discrepancies." -Level "INFO"
-            }
+            Write-EnhancedLog -Message "Files copied successfully from Source: $deployAppSource to Destination: $ScriptDirectory" -Level "INFO"
 
             # Clean up temporary files
             Write-EnhancedLog -Message "Removing temporary download file: $zipTempDownloadPath" -Level "INFO"
@@ -150,7 +138,7 @@ function Download-PSAppDeployToolkit {
 
     End {
         try {
-            Write-EnhancedLog -Message "File extracted and copied successfully to $psAppDeployToolkitPath" -Level "INFO"
+            Write-EnhancedLog -Message "File extracted and copied successfully to $ScriptDirectory" -Level "INFO"
         }
         catch {
             Write-EnhancedLog -Message "Error in End block: $($_.Exception.Message)" -Level "ERROR"
@@ -161,10 +149,10 @@ function Download-PSAppDeployToolkit {
     }
 }
 
-# # Example usage
+# Example usage
 # $params = @{
 #     GithubRepository = 'PSAppDeployToolkit/PSAppDeployToolkit';
 #     FilenamePatternMatch = '*.zip';
-#     DestinationDirectory = 'C:\temp\psadt-temp6'
+#     ScriptDirectory = 'C:\YourScriptDirectory'
 # }
 # Download-PSAppDeployToolkit @params

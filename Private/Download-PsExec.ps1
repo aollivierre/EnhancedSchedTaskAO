@@ -39,7 +39,9 @@ function Download-PsExec {
             # Define the URL for PsExec download
             $url = "https://download.sysinternals.com/files/PSTools.zip"
             # Full path for the downloaded file
-            $zipPath = Join-Path -Path $TargetFolder -ChildPath "PSTools.zip"
+            $timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
+            $zipPath = Join-Path -Path $TargetFolder -ChildPath "PSTools_$timestamp.zip"
+
 
             # Download the PSTools.zip file containing PsExec with retry logic
             Write-EnhancedLog -Message "Downloading PSTools.zip from: $url to: $zipPath" -Level "INFO"
@@ -71,7 +73,8 @@ function Download-PsExec {
                 Remove-Item -Path $extractedFolderPath -Recurse -Force
 
                 Write-EnhancedLog -Message "PsExec64.exe has been successfully downloaded and moved to: $finalPath" -Level "INFO"
-            } else {
+            }
+            else {
                 Write-EnhancedLog -Message "PsExec64.exe not found in the extracted files." -Level "ERROR"
                 throw "PsExec64.exe not found after extraction."
             }

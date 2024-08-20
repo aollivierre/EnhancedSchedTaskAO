@@ -36,10 +36,14 @@ function CreateAndRegisterScheduledTask {
     begin {
         Write-EnhancedLog -Message 'Starting CreateAndRegisterScheduledTask function' -Level 'NOTICE'
         Log-Params -Params $PSCmdlet.MyInvocation.BoundParameters
+
+        # Ensure the script runs with administrative privileges
+        CheckAndElevate -ElevateIfNotAdmin $true   
     }
 
     process {
         try {
+
             # Load configuration from PSD1 file
             $config = Import-PowerShellDataFile -Path $ConfigPath
 
@@ -72,6 +76,9 @@ function CreateAndRegisterScheduledTask {
             $schtaskName = [string]::Format($config.TaskNameFormat, $PackageName, $PackageUniqueGUID)
             $schtaskDescription = [string]::Format($config.TaskDescriptionFormat, $Version)
 
+            # Unregister the task if it exists
+            Unregister-ScheduledTaskWithLogging -TaskName $schtaskName
+
 
             # Ensure script paths exist
             if (-not (Test-Path -Path $Path_local)) {
@@ -97,9 +104,6 @@ function CreateAndRegisterScheduledTask {
                 DestinationPath = $Path_PR
             }
             Verify-CopyOperation @VerifyCopyOperationParams
-
-            # Ensure the script runs with administrative privileges
-            CheckAndElevate -ElevateIfNotAdmin $true   
 
             # Ensure the Data folder exists
             $DataFolderPath = Join-Path -Path $Path_local -ChildPath $DataFolder

@@ -1,30 +1,4 @@
 function Download-PSAppDeployToolkit {
-    <#
-    .SYNOPSIS
-    Downloads and extracts the latest PSAppDeployToolkit from a GitHub repository.
-
-    .DESCRIPTION
-    The Download-PSAppDeployToolkit function fetches the latest release of the PSAppDeployToolkit from a specified GitHub repository, downloads the release, and extracts its contents to a specified directory named `PSAppDeployToolkit`.
-
-    .PARAMETER GithubRepository
-    The GitHub repository from which to download the PSAppDeployToolkit (e.g., 'PSAppDeployToolkit/PSAppDeployToolkit').
-
-    .PARAMETER FilenamePatternMatch
-    The filename pattern to match the release asset (e.g., '*.zip').
-
-    .PARAMETER DestinationDirectory
-    The parent directory where the `PSAppDeployToolkit` folder will be created.
-
-    .EXAMPLE
-    $params = @{
-        GithubRepository = 'PSAppDeployToolkit/PSAppDeployToolkit';
-        FilenamePatternMatch = '*.zip';
-        DestinationDirectory = 'C:\YourScriptDirectory'
-    }
-    Download-PSAppDeployToolkit @params
-    Downloads and extracts the latest PSAppDeployToolkit to a `PSAppDeployToolkit` directory within the specified parent directory.
-    #>
-
     [CmdletBinding()]
     param (
         [Parameter(Mandatory = $true)]
@@ -34,7 +8,10 @@ function Download-PSAppDeployToolkit {
         [string]$FilenamePatternMatch,
 
         [Parameter(Mandatory = $true)]
-        [string]$DestinationDirectory
+        [string]$DestinationDirectory,
+
+        [Parameter(Mandatory = $true)]
+        [string]$CustomizationsPath
     )
 
     Begin {
@@ -42,7 +19,6 @@ function Download-PSAppDeployToolkit {
         Log-Params -Params $PSCmdlet.MyInvocation.BoundParameters
 
         try {
-            # Set the URI to get the latest release information from the GitHub repository
             $psadtReleaseUri = "https://api.github.com/repos/$GithubRepository/releases/latest"
             Write-EnhancedLog -Message "GitHub release URI: $psadtReleaseUri" -Level "INFO"
         }
@@ -55,7 +31,6 @@ function Download-PSAppDeployToolkit {
 
     Process {
         try {
-            # Fetch the latest release information from GitHub
             Write-EnhancedLog -Message "Fetching the latest release information from GitHub" -Level "INFO"
             $psadtDownloadUri = (Invoke-RestMethod -Method GET -Uri $psadtReleaseUri).assets |
             Where-Object { $_.name -like $FilenamePatternMatch } |
@@ -66,80 +41,110 @@ function Download-PSAppDeployToolkit {
             }
             Write-EnhancedLog -Message "Found matching download URL: $psadtDownloadUri" -Level "INFO"
 
-            # Set the path for the temporary download location with a timestamp
             $timestamp = Get-Date -Format "yyyyMMddHHmmss"
-            $zipTempDownloadPath = Join-Path -Path ([System.IO.Path]::GetTempPath()) -ChildPath "PSAppDeployToolkit_$timestamp.zip"
-            Write-EnhancedLog -Message "Temporary download path: $zipTempDownloadPath" -Level "INFO"
+            $tempDownloadPath = Join-Path -Path ([System.IO.Path]::GetTempPath()) -ChildPath "PSAppDeployToolkit_$timestamp.zip"
+            Write-EnhancedLog -Message "Temporary download path: $tempDownloadPath" -Level "INFO"
 
-            # Download the file with retry mechanism using Start-FileDownloadWithRetry
             $downloadParams = @{
                 Source      = $psadtDownloadUri
-                Destination = $zipTempDownloadPath
+                Destination = $tempDownloadPath
                 MaxRetries  = 3
             }
             Start-FileDownloadWithRetry @downloadParams
 
-            # Unblock the downloaded file if necessary
-            Write-EnhancedLog -Message "Unblocking file at $zipTempDownloadPath" -Level "INFO"
-            Unblock-File -Path $zipTempDownloadPath
+            Write-EnhancedLog -Message "Unblocking file at $tempDownloadPath" -Level "INFO"
+            Unblock-File -Path $tempDownloadPath
 
-            # Create a timestamped temporary folder for extraction
-            $tempExtractionPath = Join-Path -Path ([System.IO.Path]::GetTempPath()) -ChildPath "PSAppDeployToolkit_$timestamp"
-            if (-not (Test-Path $tempExtractionPath)) {
-                New-Item -Path $tempExtractionPath -ItemType Directory | Out-Null
+            $finalDestinationPath = Join-Path -Path $DestinationDirectory -ChildPath "PSAppDeployToolkit"
+            Write-EnhancedLog -Message "Final destination path: $finalDestinationPath" -Level "INFO"
+
+            if (Test-Path $finalDestinationPath) {
+                Remove-Item -Path $finalDestinationPath -Recurse -Force
+                Write-EnhancedLog -Message "Removed existing destination path: $finalDestinationPath" -Level "INFO"
+            }            
+
+            Write-EnhancedLog -Message "Extracting files directly to $finalDestinationPath" -Level "INFO"
+            Expand-Archive -Path $tempDownloadPath -DestinationPath $finalDestinationPath -Force
+
+            Write-EnhancedLog -Message "Copying PS1 files from customization folder to $finalDestinationPath\Toolkit" -Level "INFO"
+            Copy-Item -Path (Join-Path $CustomizationsPath '*.ps1') -Destination "$finalDestinationPath\Toolkit" -Force
+
+            Write-EnhancedLog -Message "Copying PNG files from customization folder to $finalDestinationPath\Toolkit\AppDeployToolkit\" -Level "INFO"
+            $appDeployToolkitFolder = "$finalDestinationPath\Toolkit\AppDeployToolkit"
+
+            if (-not (Test-Path $appDeployToolkitFolder)) {
+                Write-EnhancedLog -Message "Error: The AppDeployToolkit folder does not exist at $appDeployToolkitFolder" -Level "ERROR"
+                throw "The AppDeployToolkit folder does not exist."
+            }
+            
+            Copy-Item -Path (Join-Path $CustomizationsPath '*.png') -Destination $appDeployToolkitFolder -Force
+            
+
+            # Verify the extraction operation
+            Write-EnhancedLog -Message "Verifying the extraction operation..." -Level "INFO"
+            $extractedToolkitPath = "$finalDestinationPath\Toolkit"
+            $extractedAppDeployToolkitPath = "$finalDestinationPath\Toolkit\AppDeployToolkit"
+
+            $extractionVerification = [System.Collections.Generic.List[string]]::new()
+
+            if (-not (Test-Path $extractedToolkitPath)) {
+                $extractionVerification.Add("Toolkit folder does not exist.")
             }
 
-            # Extract the contents of the zip file to the temporary extraction path
-            Write-EnhancedLog -Message "Extracting file from $zipTempDownloadPath to $tempExtractionPath" -Level "INFO"
-            Expand-Archive -Path $zipTempDownloadPath -DestinationPath $tempExtractionPath -Force
-
-            # Define the PSAppDeployToolkit directory path
-            $psAppDeployToolkitPath = Join-Path -Path $DestinationDirectory -ChildPath "PSAppDeployToolkit"
-            if (-not (Test-Path $psAppDeployToolkitPath)) {
-                New-Item -Path $psAppDeployToolkitPath -ItemType Directory | Out-Null
-                Write-EnhancedLog -Message "Created directory: $psAppDeployToolkitPath" -Level "INFO"
+            if (-not (Test-Path $extractedAppDeployToolkitPath)) {
+                $extractionVerification.Add("AppDeployToolkit folder does not exist.")
             }
 
-            # Use Copy-Item to copy the entire extracted folder structure, excluding Toolkit\Deploy-Application.ps1 and AppDeployToolkitBanner.png
-            Write-EnhancedLog -Message "Copying files from $tempExtractionPath to $psAppDeployToolkitPath, excluding Toolkit\Deploy-Application.ps1 and AppDeployToolkitBanner.png" -Level "INFO"
-
-
-            #ToDO fix the following as it is creating duplicate empty folders within each other so either fix it with copy-item or bring back robocopy but maintain exclusions or use a hybrid approach of using robocopy to maintain the original folder structure and then use copy-item to copy specific items from source to destination 
-
-            Get-ChildItem -Path $tempExtractionPath -Recurse | 
-            Where-Object { 
-                $_.FullName -notmatch '\\Toolkit\\Deploy-Application\.ps1$' -and
-                $_.Name -ne 'AppDeployToolkitBanner.png'
-            } |
-            ForEach-Object {
-                $destinationPath = $_.FullName.Replace($tempExtractionPath, $psAppDeployToolkitPath)
-                if (-not (Test-Path -Path (Split-Path -Path $destinationPath -Parent))) {
-                    New-Item -Path (Split-Path -Path $destinationPath -Parent) -ItemType Directory | Out-Null
-                }
-                Copy-Item -Path $_.FullName -Destination $destinationPath -Force
-            }
-
-
-            Write-EnhancedLog -Message "Files copied successfully from Source: $tempExtractionPath to Destination: $psAppDeployToolkitPath" -Level "INFO"
-
-            # Verify the copy operation
-            Write-EnhancedLog -Message "Verifying the copy operation..." -Level "INFO"
-            $verificationResults = Verify-CopyOperation -SourcePath $tempExtractionPath -DestinationPath $psAppDeployToolkitPath
-
-            # Handle the verification results if necessary
-            if ($verificationResults.Count -gt 0) {
-                Write-EnhancedLog -Message "Discrepancies found during copy verification." -Level "ERROR"
+            if ($extractionVerification.Count -gt 0) {
+                Write-EnhancedLog -Message "Discrepancies found during extraction verification: $($extractionVerification -join ', ')" -Level "ERROR"
             }
             else {
-                Write-EnhancedLog -Message "Copy verification completed successfully with no discrepancies." -Level "INFO"
+                Write-EnhancedLog -Message "Extraction verification completed successfully with no discrepancies." -Level "INFO"
             }
 
-            # Clean up temporary files
-            Write-EnhancedLog -Message "Removing temporary download file: $zipTempDownloadPath" -Level "INFO"
-            Remove-Item -Path $zipTempDownloadPath -Force
+            # Verify the copy operation for PS1 files
+            Write-EnhancedLog -Message "Verifying the PS1 file copy operation..." -Level "INFO"
+            $ps1Files = Get-ChildItem -Path (Join-Path $CustomizationsPath '*.ps1')
+            $ps1CopyVerification = [System.Collections.Generic.List[string]]::new()
 
-            Write-EnhancedLog -Message "Removing temporary extraction folder: $tempExtractionPath" -Level "INFO"
-            Remove-Item -Path $tempExtractionPath -Recurse -Force
+            foreach ($file in $ps1Files) {
+                $destinationFile = Join-Path "$finalDestinationPath\Toolkit" $file.Name
+                if (-not (Test-Path $destinationFile)) {
+                    $ps1CopyVerification.Add("$($file.Name) was not copied.")
+                }
+            }
+
+            if ($ps1CopyVerification.Count -gt 0) {
+                Write-EnhancedLog -Message "Discrepancies found during PS1 file copy verification: $($ps1CopyVerification -join ', ')" -Level "ERROR"
+            }
+            else {
+                Write-EnhancedLog -Message "PS1 file copy verification completed successfully with no discrepancies." -Level "INFO"
+            }
+
+            # Verify the copy operation for PNG files
+            Write-EnhancedLog -Message "Verifying the PNG file copy operation..." -Level "INFO"
+            $pngFiles = Get-ChildItem -Path (Join-Path $CustomizationsPath '*.png')
+            $pngCopyVerification = [System.Collections.Generic.List[string]]::new()
+
+            foreach ($file in $pngFiles) {
+                $destinationFile = Join-Path "$extractedAppDeployToolkitPath" $file.Name
+                if (-not (Test-Path $destinationFile)) {
+                    $pngCopyVerification.Add("$($file.Name) was not copied.")
+                }
+            }
+
+            if ($pngCopyVerification.Count -gt 0) {
+                Write-EnhancedLog -Message "Discrepancies found during PNG file copy verification: $($pngCopyVerification -join ', ')" -Level "ERROR"
+            }
+            else {
+                Write-EnhancedLog -Message "PNG file copy verification completed successfully with no discrepancies." -Level "INFO"
+            }
+
+
+            Write-EnhancedLog -Message "Removing temporary download file: $tempDownloadPath" -Level "INFO"
+            Remove-Item -Path $tempDownloadPath -Force
+
+            Write-EnhancedLog -Message "Download and extraction completed successfully." -Level "Notice"
         }
         catch {
             Write-EnhancedLog -Message "Error in Process block: $($_.Exception.Message)" -Level "ERROR"
@@ -149,22 +154,15 @@ function Download-PSAppDeployToolkit {
     }
 
     End {
-        try {
-            Write-EnhancedLog -Message "File extracted and copied successfully to $psAppDeployToolkitPath" -Level "INFO"
-        }
-        catch {
-            Write-EnhancedLog -Message "Error in End block: $($_.Exception.Message)" -Level "ERROR"
-            Handle-Error -ErrorRecord $_
-        }
-
         Write-EnhancedLog -Message "Exiting Download-PSAppDeployToolkit function" -Level "Notice"
     }
 }
 
 # # Example usage
 # $params = @{
-#     GithubRepository = 'PSAppDeployToolkit/PSAppDeployToolkit';
+#     GithubRepository     = 'PSAppDeployToolkit/PSAppDeployToolkit';
 #     FilenamePatternMatch = '*.zip';
-#     DestinationDirectory = 'C:\temp\psadt-temp6'
+#     DestinationDirectory = 'C:\temp\psadt1';
+#     CustomizationsPath   = 'C:\code\IntuneDeviceMigration\DeviceMigration\PSADT-Customizations'
 # }
 # Download-PSAppDeployToolkit @params

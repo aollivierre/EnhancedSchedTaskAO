@@ -61,6 +61,7 @@ function Ensure-RunningAsSystem {
                     PsExec64Path = $PsExec64Path
                     ScriptPath   = $ScriptPath
                     TargetFolder = $TargetFolder
+                    UsePowerShell5 = $true
                 }
 
                 Invoke-AsSystem @invokeParams

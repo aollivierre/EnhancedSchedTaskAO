@@ -70,13 +70,7 @@ function Invoke-AsSystem {
         Write-EnhancedLog -Message "Preparing to execute PowerShell as SYSTEM using PsExec64 with the script: $ScriptPathAsSYSTEM" -Level "INFO"
 
         # Log parameters using splatting
-        $logParams = @{
-            PsExec64Path       = $PsExec64Path
-            ScriptPathAsSYSTEM = $ScriptPathAsSYSTEM
-            TargetFolder       = $TargetFolder
-            UsePowerShell5     = $UsePowerShell5
-        }
-        Log-Params -Params $logParams
+        Log-Params -Params $PSCmdlet.MyInvocation.BoundParameters
 
         # Download PsExec to the target folder if necessary
         Download-PsExec -targetFolder $TargetFolder

@@ -59,9 +59,15 @@ function Download-PSAppDeployToolkit {
             Write-EnhancedLog -Message "Final destination path: $finalDestinationPath" -Level "INFO"
 
             if (Test-Path $finalDestinationPath) {
-                Remove-Item -Path $finalDestinationPath -Recurse -Force
+                $removeParams = @{
+                    Path               = $finalDestinationPath
+                    ForceKillProcesses = $true
+                    MaxRetries         = 5
+                    RetryInterval      = 10
+                }
+                Remove-EnhancedItem @removeParams
                 Write-EnhancedLog -Message "Removed existing destination path: $finalDestinationPath" -Level "INFO"
-            }            
+            }
 
             Write-EnhancedLog -Message "Extracting files directly to $finalDestinationPath" -Level "INFO"
             Expand-Archive -Path $tempDownloadPath -DestinationPath $finalDestinationPath -Force
@@ -76,9 +82,8 @@ function Download-PSAppDeployToolkit {
                 Write-EnhancedLog -Message "Error: The AppDeployToolkit folder does not exist at $appDeployToolkitFolder" -Level "ERROR"
                 throw "The AppDeployToolkit folder does not exist."
             }
-            
+
             Copy-Item -Path (Join-Path $CustomizationsPath '*.png') -Destination $appDeployToolkitFolder -Force
-            
 
             # Verify the extraction operation
             Write-EnhancedLog -Message "Verifying the extraction operation..." -Level "INFO"
@@ -140,9 +145,14 @@ function Download-PSAppDeployToolkit {
                 Write-EnhancedLog -Message "PNG file copy verification completed successfully with no discrepancies." -Level "INFO"
             }
 
-
             Write-EnhancedLog -Message "Removing temporary download file: $tempDownloadPath" -Level "INFO"
-            Remove-Item -Path $tempDownloadPath -Force
+            $removeTempParams = @{
+                Path = $tempDownloadPath
+                ForceKillProcesses = $true
+                MaxRetries         = 3
+                RetryInterval      = 5
+            }
+            Remove-EnhancedItem @removeTempParams
 
             Write-EnhancedLog -Message "Download and extraction completed successfully." -Level "Notice"
         }
@@ -158,7 +168,7 @@ function Download-PSAppDeployToolkit {
     }
 }
 
-# # Example usage
+# Example usage
 # $params = @{
 #     GithubRepository     = 'PSAppDeployToolkit/PSAppDeployToolkit';
 #     FilenamePatternMatch = '*.zip';

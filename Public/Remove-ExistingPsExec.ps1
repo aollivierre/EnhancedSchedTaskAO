@@ -1,4 +1,3 @@
-
 function Remove-ExistingPsExec {
     [CmdletBinding()]
     param(

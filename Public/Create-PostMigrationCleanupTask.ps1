@@ -1,10 +1,10 @@
-function Create-ScheduledTask {
+function Create-PostMigrationCleanupTask {
     <#
     .SYNOPSIS
     Creates a scheduled task.
 
     .DESCRIPTION
-    The Create-ScheduledTask function creates a scheduled task that runs a specified PowerShell script at logon with the highest privileges.
+    The Create-PostMigrationCleanupTask function creates a scheduled task that runs a specified PowerShell script at logon with the highest privileges.
 
     .PARAMETER TaskPath
     The path of the task in Task Scheduler.
@@ -21,7 +21,7 @@ function Create-ScheduledTask {
         TaskName   = "Run Post-migration cleanup"
         ScriptPath = "C:\ProgramData\AADMigration\Scripts\PostRunOnce3.ps1"
     }
-    Create-ScheduledTask @params
+    Create-PostMigrationCleanupTask @params
     Creates the scheduled task to run the specified script.
     #>
 
@@ -38,7 +38,7 @@ function Create-ScheduledTask {
     )
 
     Begin {
-        Write-EnhancedLog -Message "Starting Create-ScheduledTask function" -Level "Notice"
+        Write-EnhancedLog -Message "Starting Create-PostMigrationCleanupTask function" -Level "Notice"
         Log-Params -Params $PSCmdlet.MyInvocation.BoundParameters
     }
 
@@ -83,14 +83,14 @@ function Create-ScheduledTask {
             Write-EnhancedLog -Message "Scheduled task created successfully." -Level "INFO"
         }
         catch {
-            Write-EnhancedLog -Message "An error occurred in Create-ScheduledTask function: $($_.Exception.Message)" -Level "ERROR"
+            Write-EnhancedLog -Message "An error occurred in Create-PostMigrationCleanupTask function: $($_.Exception.Message)" -Level "ERROR"
             Handle-Error -ErrorRecord $_
             throw $_
         }
     }
 
     End {
-        Write-EnhancedLog -Message "Exiting Create-ScheduledTask function" -Level "Notice"
+        Write-EnhancedLog -Message "Exiting Create-PostMigrationCleanupTask function" -Level "Notice"
     }
 }
 
@@ -100,4 +100,4 @@ function Create-ScheduledTask {
 #     TaskName   = "Run Post-migration cleanup"
 #     ScriptPath = "C:\ProgramData\AADMigration\Scripts\PostRunOnce3.ps1"
 # }
-# Create-ScheduledTask @params
+# Create-PostMigrationCleanupTask @params

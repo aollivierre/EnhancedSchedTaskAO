@@ -17,20 +17,36 @@ function Remove-ScheduledTaskFilesWithLogging {
 
             if ($validationResultsBefore.TotalValidatedFiles -gt 0) {
                 Write-EnhancedLog -Message "Calling Remove-Item for path: $Path" -Level "INFO"
-                Remove-Item -Path $Path -Recurse -Force
+                # Remove-Item -Path $Path -Recurse -Force
+
+                if (Test-Path $Path) {
+                    $removeParams = @{
+                        Path               = $Path
+                        ForceKillProcesses = $true
+                        MaxRetries         = 5
+                        RetryInterval      = 10
+                    }
+                    Remove-EnhancedItem @removeParams
+                    Write-EnhancedLog -Message "Removed existing destination path: $finalDestinationPath" -Level "INFO"
+                }
+    
+
 
                 # Validate after removal
                 $validationResultsAfter = Validate-PathExistsWithLogging -Paths $Path
 
                 if ($validationResultsAfter.TotalValidatedFiles -gt 0) {
                     Write-EnhancedLog -Message "Path $Path still exists after attempting to remove. Manual intervention may be required." -Level "ERROR"
-                } else {
+                }
+                else {
                     Write-EnhancedLog -Message "All files within $Path successfully removed." -Level "CRITICAL"
                 }
-            } else {
+            }
+            else {
                 Write-EnhancedLog -Message "Path $Path does not exist. No action taken." -Level "WARNING"
             }
-        } catch {
+        }
+        catch {
             Write-EnhancedLog -Message "Error during Remove-Item for path: $Path. Error: $($_.Exception.Message)" -Level "ERROR"
             Handle-Error -ErrorRecord $_
         }

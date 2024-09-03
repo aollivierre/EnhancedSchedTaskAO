@@ -44,4 +44,3 @@ function Unregister-ScheduledTaskWithLogging {
 
 
 # Unregister-ScheduledTaskWithLogging -TaskName "YourScheduledTaskName"
-

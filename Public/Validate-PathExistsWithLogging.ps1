@@ -5,7 +5,6 @@ function Validate-PathExistsWithLogging {
         [string[]]$Paths
     )
 
-
     Begin {
         Write-EnhancedLog -Message "Starting Validate-PathExistsWithLogging function" -Level "INFO"
         Log-Params -Params $PSCmdlet.MyInvocation.BoundParameters
@@ -14,22 +13,36 @@ function Validate-PathExistsWithLogging {
         $totalExpectedFiles = [System.Collections.Generic.List[int]]::new()
         $totalValidatedFiles = [System.Collections.Generic.List[int]]::new()
         $missingFiles = [System.Collections.Generic.List[string]]::new()
-
     }
 
     Process {
         foreach ($Path in $Paths) {
             try {
+                if ([string]::IsNullOrWhiteSpace($Path)) {
+                    Write-EnhancedLog -Message "Invalid Path: Path is null or empty." -Level "ERROR"
+                    throw "Invalid Path: Path is null or empty."
+                }
+
+                Write-EnhancedLog -Message "Validating path: $Path" -Level "INFO"
                 $exists = Test-Path -Path $Path
 
                 if ($exists) {
                     Write-EnhancedLog -Message "Path exists: $Path" -Level "INFO"
 
-                    $filesInPath = Get-ChildItem -Path $Path -Recurse -File
-                    $totalExpectedFiles.Add($filesInPath.Count)
-                    $totalValidatedFiles.Add($filesInPath.Count)
+                    try {
+                        $filesInPath = Get-ChildItem -Path $Path -Recurse -File
+                        $fileCount = $filesInPath.Count
 
-                    Write-EnhancedLog -Message "Total files found in $Path $($filesInPath.Count)" -Level "INFO"
+                        # Update counters
+                        $totalExpectedFiles.Add($fileCount)
+                        $totalValidatedFiles.Add($fileCount)
+
+                        Write-EnhancedLog -Message "Total files found in $Path $fileCount" -Level "INFO"
+                    }
+                    catch {
+                        Write-EnhancedLog -Message "Error retrieving files in path: $Path. Error: $($_.Exception.Message)" -Level "ERROR"
+                        throw "Error retrieving files in path: $Path. Error: $($_.Exception.Message)"
+                    }
                 }
                 else {
                     Write-EnhancedLog -Message "Path does not exist: $Path" -Level "WARNING"
@@ -47,6 +60,10 @@ function Validate-PathExistsWithLogging {
         # Sum up the total counts
         $sumExpectedFiles = $totalExpectedFiles | Measure-Object -Sum | Select-Object -ExpandProperty Sum
         $sumValidatedFiles = $totalValidatedFiles | Measure-Object -Sum | Select-Object -ExpandProperty Sum
+
+        if ($sumExpectedFiles -eq 0) {
+            Write-EnhancedLog -Message "No files expected. Ensure the paths provided are correct and contain files." -Level "WARNING"
+        }
 
         if ($sumValidatedFiles -lt $sumExpectedFiles) {
             $missingCount = $sumExpectedFiles - $sumValidatedFiles

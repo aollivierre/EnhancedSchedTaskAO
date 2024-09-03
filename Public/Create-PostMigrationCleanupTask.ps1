@@ -1,40 +1,38 @@
 function Create-PostMigrationCleanupTask {
-    <#
-    .SYNOPSIS
-    Creates a scheduled task.
-
-    .DESCRIPTION
-    The Create-PostMigrationCleanupTask function creates a scheduled task that runs a specified PowerShell script at logon with the highest privileges.
-
-    .PARAMETER TaskPath
-    The path of the task in Task Scheduler.
-
-    .PARAMETER TaskName
-    The name of the scheduled task.
-
-    .PARAMETER ScriptPath
-    The path to the PowerShell script to be executed.
-
-    .EXAMPLE
-    $params = @{
-        TaskPath   = "AAD Migration"
-        TaskName   = "Run Post-migration cleanup"
-        ScriptPath = "C:\ProgramData\AADMigration\Scripts\PostRunOnce3.ps1"
-    }
-    Create-PostMigrationCleanupTask @params
-    Creates the scheduled task to run the specified script.
-    #>
-
     [CmdletBinding()]
     param (
         [Parameter(Mandatory = $true)]
         [string]$TaskPath,
-
+        
         [Parameter(Mandatory = $true)]
         [string]$TaskName,
-
+        
         [Parameter(Mandatory = $true)]
-        [string]$ScriptPath
+        [string]$ScriptDirectory,
+        
+        [Parameter(Mandatory = $true)]
+        [string]$ScriptName,
+        
+        [Parameter(Mandatory = $true)]
+        [string]$TaskArguments,
+        
+        [Parameter(Mandatory = $true)]
+        [string]$TaskPrincipalUserId,
+        
+        [Parameter(Mandatory = $true)]
+        [string]$TaskRunLevel,
+        
+        [Parameter(Mandatory = $true)]
+        [string]$PowerShellPath,
+        
+        [Parameter(Mandatory = $true)]
+        [string]$TaskDescription,
+        
+        [Parameter(Mandatory = $true)]
+        [string]$TaskTriggerType,
+        
+        [Parameter(Mandatory = $false)]
+        [string]$Delay  # Optional delay
     )
 
     Begin {
@@ -44,43 +42,60 @@ function Create-PostMigrationCleanupTask {
 
     Process {
         try {
-
-            # Unregister the task if it exists
-            Unregister-ScheduledTaskWithLogging -TaskName $TaskName
-
-            # Create the new scheduled task
-            $arguments = "-executionpolicy Bypass -file $ScriptPath"
-
-            Write-EnhancedLog -Message "Creating scheduled task: $TaskName at $TaskPath to run script: $ScriptPath" -Level "INFO"
-            
-            $params = @{
-                Execute    = 'PowerShell.exe'
-                Argument   = $arguments
+            # Validate if the task already exists before creation
+            if (Validate-ScheduledTask -TaskPath $TaskPath -TaskName $TaskName) {
+                Write-EnhancedLog -Message "Task '$TaskName' found before creation. It will be unregistered first." -Level "WARNING"
+                Unregister-ScheduledTaskWithLogging -TaskName $TaskName
             }
-            $action = New-ScheduledTaskAction @params
 
-            $params = @{
-                AtLogOn = $true
+            # Replace placeholder with the actual script path
+            $arguments = $TaskArguments.Replace("{ScriptPath}", "$ScriptDirectory\$ScriptName")
+
+            # Create the scheduled task action
+            $actionParams = @{
+                Execute  = $PowerShellPath
+                Argument = $arguments
             }
-            $trigger = New-ScheduledTaskTrigger @params
+            $action = New-ScheduledTaskAction @actionParams
 
-            $params = @{
-                UserId = "SYSTEM"
-                RunLevel = "Highest"
+            # Create the scheduled task trigger based on the type provided
+            $triggerParams = @{
+                $TaskTriggerType = $true
             }
-            $principal = New-ScheduledTaskPrincipal @params
+            $trigger = New-ScheduledTaskTrigger @triggerParams
 
-            $params = @{
-                Principal = $principal
-                Action    = $action
-                Trigger   = $trigger
-                TaskName  = $TaskName
-                Description = "Run post AAD Migration cleanup"
-                TaskPath  = $TaskPath
+            # Apply the delay if provided
+            if ($PSBoundParameters.ContainsKey('Delay')) {
+                $trigger.Delay = $Delay
+                Write-EnhancedLog -Message "Setting Delay: $Delay" -Level "INFO"
             }
-            $Task = Register-ScheduledTask @params
 
-            Write-EnhancedLog -Message "Scheduled task created successfully." -Level "INFO"
+            # Create the scheduled task principal
+            $principalParams = @{
+                UserId   = $TaskPrincipalUserId
+                RunLevel = $TaskRunLevel
+            }
+            $principal = New-ScheduledTaskPrincipal @principalParams
+
+            # Register the scheduled task
+            $registerTaskParams = @{
+                Principal   = $principal
+                Action      = $action
+                Trigger     = $trigger
+                TaskName    = $TaskName
+                Description = $TaskDescription
+                TaskPath    = $TaskPath
+            }
+            $Task = Register-ScheduledTask @registerTaskParams
+
+            Write-EnhancedLog -Message "Task '$TaskName' created successfully at '$TaskPath'." -Level "INFO"
+
+            # Validate the task after creation
+            if (Validate-ScheduledTask -TaskPath $TaskPath -TaskName $TaskName) {
+                Write-EnhancedLog -Message "Task '$TaskName' created and validated successfully." -Level "INFO"
+            } else {
+                Write-EnhancedLog -Message "Task '$TaskName' creation failed validation." -Level "ERROR"
+            }
         }
         catch {
             Write-EnhancedLog -Message "An error occurred in Create-PostMigrationCleanupTask function: $($_.Exception.Message)" -Level "ERROR"
@@ -94,10 +109,19 @@ function Create-PostMigrationCleanupTask {
     }
 }
 
-# # Example usage
-# $params = @{
-#     TaskPath   = "AAD Migration"
-#     TaskName   = "Run Post-migration cleanup"
-#     ScriptPath = "C:\ProgramData\AADMigration\Scripts\PostRunOnce3.ps1"
+# # Example usage with splatting
+# $CreatePostMigrationCleanupTaskParams = @{
+#     TaskPath            = "AAD Migration"
+#     TaskName            = "Run Post-migration cleanup"
+#     ScriptDirectory     = "C:\ProgramData\AADMigration\Scripts"
+#     ScriptName          = "PostRunOnce3.ps1"
+#     TaskArguments       = "-NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File `"{ScriptPath}`""
+#     TaskPrincipalUserId = "NT AUTHORITY\SYSTEM"
+#     TaskRunLevel        = "Highest"
+#     PowerShellPath      = "C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe"
+#     TaskDescription     = "Run post AAD Migration cleanup"
+#     TaskTriggerType     = "AtLogOn"  # The trigger type can be passed as a parameter now
+#     Delay               = "PT1M"  # Optional delay before starting
 # }
-# Create-PostMigrationCleanupTask @params
+
+# Create-PostMigrationCleanupTask @CreatePostMigrationCleanupTaskParams

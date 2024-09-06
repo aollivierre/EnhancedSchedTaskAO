@@ -58,10 +58,10 @@ function Ensure-RunningAsSystem {
                 $PsExec64Path = Join-Path -Path $TargetFolder -ChildPath "PsExec64.exe"
 
                 $invokeParams = @{
-                    PsExec64Path = $PsExec64Path
-                    ScriptPath   = $ScriptPath
-                    TargetFolder = $TargetFolder
-                    UsePowerShell5 = $true
+                    PsExec64Path       = $PsExec64Path
+                    ScriptPathAsSYSTEM = $ScriptPath
+                    TargetFolder       = $TargetFolder
+                    UsePowerShell5     = $true
                 }
 
                 Invoke-AsSystem @invokeParams

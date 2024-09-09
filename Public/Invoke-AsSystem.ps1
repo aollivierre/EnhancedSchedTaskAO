@@ -51,7 +51,8 @@ function Invoke-AsSystem {
         # Get the PowerShell executable path
         $pwshPath = if ($UsePowerShell5) {
             "C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe"
-        } else {
+        }
+        else {
             Get-PowerShellPath
         }
 
@@ -59,12 +60,13 @@ function Invoke-AsSystem {
         $commandToRun = "`"$pwshPath`" -NoExit -ExecutionPolicy Bypass -File `"$ScriptPathAsSYSTEM`""
 
         # Define the arguments for PsExec64.exe to run PowerShell as SYSTEM with the script
+        # Define the PsExec arguments in a readable array format
         $argList = @(
-            "-accepteula",
-            "-i",
-            "-s",
-            "-d",
-            $commandToRun
+            "-accepteula", # Accept the EULA silently
+            "-i", # Run interactively
+            "-s", # Run as SYSTEM
+            "-d", # Don't wait for process completion
+            $commandToRun   # Pass the command to run as SYSTEM
         )
 
         Write-EnhancedLog -Message "Preparing to execute PowerShell as SYSTEM using PsExec64 with the script: $ScriptPathAsSYSTEM" -Level "INFO"
@@ -96,7 +98,7 @@ function Invoke-AsSystem {
             # Run PsExec64.exe with the defined arguments to execute the script as SYSTEM
             Write-EnhancedLog -Message "Executing PsExec64.exe to start PowerShell as SYSTEM running script: $ScriptPathAsSYSTEM" -Level "INFO"
             Start-Process @processParams
-            
+                        
             Write-EnhancedLog -Message "SYSTEM session started. Closing elevated session..." -Level "INFO"
             exit
         }

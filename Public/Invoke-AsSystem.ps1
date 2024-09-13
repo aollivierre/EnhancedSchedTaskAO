@@ -57,7 +57,9 @@ function Invoke-AsSystem {
         }
 
         # Define the command for running PowerShell
-        $commandToRun = "`"$pwshPath`" -NoExit -ExecutionPolicy Bypass -File `"$ScriptPathAsSYSTEM`""
+        # $commandToRun = "`"$pwshPath`" -NoExit -ExecutionPolicy Bypass -File `"$ScriptPathAsSYSTEM`""
+        # $commandToRun = "`"$pwshPath`" -NoProfile -ExecutionPolicy Bypass -NoExit -WindowStyle Hidden -File `"$ScriptPathAsSYSTEM`""
+        $commandToRun = "`"$pwshPath`" -NoProfile -ExecutionPolicy Bypass -NoExit -File `"$ScriptPathAsSYSTEM`""
 
         # Define the arguments for PsExec64.exe to run PowerShell as SYSTEM with the script
         # Define the PsExec arguments in a readable array format

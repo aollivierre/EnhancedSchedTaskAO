@@ -51,17 +51,11 @@ function Download-PSAppDeployToolkit {
     Begin {
         Write-EnhancedLog -Message "Starting Download-PSAppDeployToolkit function" -Level "Notice"
         Log-Params -Params $PSCmdlet.MyInvocation.BoundParameters
-
-        try {
-            # Construct GitHub release URI
-            $psadtReleaseUri = "https://api.github.com/repos/$GithubRepository/releases/latest"
-            Write-EnhancedLog -Message "GitHub release URI: $psadtReleaseUri" -Level "INFO"
-        }
-        catch {
-            Write-EnhancedLog -Message "Error in Begin block: $($_.Exception.Message)" -Level "ERROR"
-            Handle-Error -ErrorRecord $_
-            throw
-        }
+        
+        # Construct GitHub release URI
+        $psadtReleaseUri = "https://api.github.com/repos/$GithubRepository/releases/latest"
+        Write-EnhancedLog -Message "GitHub release URI: $psadtReleaseUri" -Level "INFO"
+        
     }
 
     Process {
@@ -69,8 +63,8 @@ function Download-PSAppDeployToolkit {
             # Fetch the download URL from GitHub
             Write-EnhancedLog -Message "Fetching the latest release information from GitHub" -Level "INFO"
             $psadtDownloadUri = (Invoke-RestMethod -Method GET -Uri $psadtReleaseUri).assets |
-                Where-Object { $_.name -like $FilenamePatternMatch } |
-                Select-Object -ExpandProperty browser_download_url
+            Where-Object { $_.name -like $FilenamePatternMatch } |
+            Select-Object -ExpandProperty browser_download_url
 
             if (-not $psadtDownloadUri) {
                 throw "No matching file found for pattern: $FilenamePatternMatch"
@@ -125,7 +119,7 @@ function Download-PSAppDeployToolkit {
             # Clean up temporary download file
             Write-EnhancedLog -Message "Removing temporary download file: $tempDownloadPath" -Level "INFO"
             $removeTempParams = @{
-                Path = $tempDownloadPath
+                Path               = $tempDownloadPath
                 ForceKillProcesses = $true
                 MaxRetries         = 3
                 RetryInterval      = 5
@@ -183,7 +177,8 @@ function Verify-PSADTFileCopy {
 
     if ($ps1CopyVerification.Count -gt 0) {
         Write-EnhancedLog -Message "Discrepancies found during PS1 file copy verification: $($ps1CopyVerification -join ', ')" -Level "ERROR"
-    } else {
+    }
+    else {
         Write-EnhancedLog -Message "PS1 file copy verification completed successfully with no discrepancies." -Level "INFO"
     }
 
@@ -201,7 +196,8 @@ function Verify-PSADTFileCopy {
 
     if ($pngCopyVerification.Count -gt 0) {
         Write-EnhancedLog -Message "Discrepancies found during PNG file copy verification: $($pngCopyVerification -join ', ')" -Level "ERROR"
-    } else {
+    }
+    else {
         Write-EnhancedLog -Message "PNG file copy verification completed successfully with no discrepancies." -Level "INFO"
     }
 }

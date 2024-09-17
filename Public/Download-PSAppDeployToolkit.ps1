@@ -144,6 +144,10 @@ function Apply-PSADTCustomizations {
     # Copy .ps1 files
     Copy-Item -Path (Join-Path $CustomizationsPath '*.ps1') -Destination "$DestinationPath\Toolkit" -Force
 
+
+    # Copy .xml files
+    Copy-Item -Path (Join-Path $CustomizationsPath '*.xml') -Destination "$DestinationPath\Toolkit" -Force
+
     # Copy .png files
     $appDeployToolkitFolder = "$DestinationPath\Toolkit\AppDeployToolkit"
     if (-not (Test-Path $appDeployToolkitFolder)) {

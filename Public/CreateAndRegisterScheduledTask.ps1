@@ -74,6 +74,7 @@ function CreateAndRegisterScheduledTask {
 
             $Path_PR = Join-Path -Path $Path_local -ChildPath "Data\$PackageName-$PackageUniqueGUID"
             $schtaskName = [string]::Format($config.TaskNameFormat, $PackageName, $PackageUniqueGUID)
+
             $schtaskDescription = [string]::Format($config.TaskDescriptionFormat, $Version)
 
             # Unregister the task if it exists

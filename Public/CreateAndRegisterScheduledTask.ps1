@@ -422,12 +422,12 @@ function CreateAndRegisterScheduledTask {
 #    - **Example Use Case:** If you want a task to run every day at 9:00 AM, you would set the `StartTime` to `"09:00:00"`.
 
 # ### Practical Differences:
-# - **StartBoundary:** Controls when the task becomes eligible to run. It’s a one-time setting that dictates when the task can first start, often used with non-recurring tasks or as a gate for when recurring tasks can start.
-# - **StartTime:** Controls the exact time on a daily or weekly basis when the task should be executed. It’s used for recurring tasks that need to start at the same time every day or on specific days of the week.
+# - **StartBoundary:** Controls when the task becomes eligible to run. It[U+2019]s a one-time setting that dictates when the task can first start, often used with non-recurring tasks or as a gate for when recurring tasks can start.
+# - **StartTime:** Controls the exact time on a daily or weekly basis when the task should be executed. It[U+2019]s used for recurring tasks that need to start at the same time every day or on specific days of the week.
 
 # ### Example Scenario:
 # If you want a task to start running every day at 9:00 AM but only start doing so from September 1, 2024, you would set:
-# - `StartBoundary = "2024-09-01T00:00:00"` (the task won’t run before this date).
+# - `StartBoundary = "2024-09-01T00:00:00"` (the task won[U+2019]t run before this date).
 # - `StartTime = "09:00:00"` (the task will run at 9:00 AM daily after September 1, 2024).
 
 # ### Conclusion:
